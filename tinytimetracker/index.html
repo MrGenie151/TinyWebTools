@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Tiny Time Tracker</title>
+	
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+	<style>
+		body {
+			font-family: "Roboto", sans-serif;
+		}
+
+		footer {
+			text-align: center;
+		}
+
+		.task-card {
+			border-color: black;
+			border-style: dashed;
+			display: flex;
+            margin: 5px;
+		}
+
+		.task-card * {
+			display: flex;
+			flex: 1 1 0px;
+		}
+
+		.right-align {
+			text-align: right;
+		}
+
+        #previous-segments-container {
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+	</style>
+</head>
+
+<body>
+	<h2>Tiny Time Tracker</h2>
+	<p>
+		<p>Welcome to Tiny Time Tracker :3</p>
+		<p>Enter a task and click the start button to start tracking.</p>
+	</p>
+    <div>
+        <label for="taskName">Task: </label>
+        <input type="text" name="taskName" id="taskName">
+        <button onclick="toggleTracking()" id="taskButton">Start Task</button>
+        <p id="timedisplay"></p>
+    </div>
+	<div id="previous-segments-container">
+
+	</div>
+	<footer>
+		<p>created with love by <a href="geniecmd.xyz">Genie</a> <3</p>
+		<p><a href="./index.html" download="TinyTimeTracker.html">Download this page</a> and use it offline!</p>
+	</footer>
+
+	<script type="text/template" id="segment-template">
+		<div class="task-card">
+			<p>Task: {{taskname}}</p>
+            <p>{{dateStarted}}</p>
+			<p class="right-align">{{timeSpent}}</p>
+			<button onclick="removeSegment({{index}})">Remove Segment</button>
+		</div>
+	</script>
+
+	<script>
+        let taskName = document.getElementById("taskName");
+        let timeDisplay = document.getElementById("timedisplay");
+        let trackerButton = document.getElementById("taskButton");
+        let previousSegmentsContainer = document.getElementById("previous-segments-container");
+        let template = document.getElementById("segment-template");
+		let templateHTML = template.innerHTML;
+
+		let isTracking = false;
+        let timerUpdateIntervalID;
+
+        let startTime = Temporal.Now.plainDateTimeISO();
+
+        let previousSegments = fetchFromLocalStorage() || [];
+
+        function fetchFromLocalStorage() {
+            let data = JSON.parse(localStorage.getItem("tinytimetracker"));
+
+            if (data != null) {
+				let realData = [];
+				data.forEach(element => {
+					let newSegment = [];
+					newSegment.Name = element.Name;
+                    newSegment.Duration = Temporal.Duration.from(element.Duration || "+P0Y0M0W0DT0H0M0S");
+                    newSegment.Date = Temporal.PlainDate.from(element.Date || "1970-01-01");
+					realData.push(newSegment);
+				});
+				return realData
+			} else {
+                return null;
+			}
+        }
+
+        function updateLocalStorage() {
+			localStorage.setItem("tinytimetracker",JSON.stringify(previousSegments))
+		}
+
+        function updateTimerDisplay() {
+            let timeSince = startTime.until(Temporal.Now.plainDateTimeISO());
+            timeDisplay.innerHTML = timeSince.days + "d " + timeSince.hours + "h " +
+                timeSince.minutes + "m " + timeSince.seconds + "s ";
+        }
+
+        function constructSegmentBox(segment,index) {
+			let timeString = segment.Duration.days + "d " + segment.Duration.hours + "h " +
+                            segment.Duration.minutes + "m " + segment.Duration.seconds + "s ";
+			return templateHTML.replace("{{taskname}}",segment.Name)
+				.replace("{{timeSpent}}",timeString)
+				.replace("{{index}}",index)
+                .replace("{{dateStarted}}",segment.Date.toString());
+		}
+
+        function updateSegments() {
+			let newSegmentsHTML = "";
+			previousSegments.forEach((segment, index) => {
+				newSegmentsHTML += constructSegmentBox(segment,index);
+			})
+
+			previousSegmentsContainer.innerHTML = newSegmentsHTML;
+			//console.log("refresh")
+		}
+
+        function toggleTracking() {
+            isTracking = !isTracking;
+            if (isTracking === true) {
+                startTime = Temporal.Now.plainDateTimeISO();
+                taskName.disabled = true;
+                trackerButton.innerHTML = "End Task";
+                updateTimerDisplay();
+                timerUpdateIntervalID = setInterval(updateTimerDisplay,1000);
+            } else {
+                let newSegment = {};
+                newSegment.Name = taskName.value;
+                newSegment.Duration = startTime.until(Temporal.Now.plainDateTimeISO());
+                newSegment.Date = Temporal.Now.plainDateISO();
+                previousSegments.unshift(newSegment);
+                taskName.disabled = false;
+                trackerButton.innerHTML = "Start Task";
+                clearInterval(timerUpdateIntervalID);
+                updateSegments();
+                updateLocalStorage();
+            }
+        }
+
+        function removeSegment(index) {
+			previousSegments.splice(index,1);
+			updateLocalStorage()
+			updateSegments()
+		}
+
+        updateSegments()
+	</script>
+</body>
+
+</html>
